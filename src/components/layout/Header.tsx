@@ -6,9 +6,12 @@ import { useState } from "react";
 
 import { mainNavLinks } from "@/constants/navigation";
 import { cn } from "@/lib/utils/cn";
+import { useCartStore } from "@/features/cart/cart-store";
 import { Container } from "./Container";
 
 export function Header() {
+  const totalItems = useCartStore((state) => state.getTotalItems());
+  const hasHydrated = useCartStore((state) => state.hasHydrated);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleCloseMenu = () => {
@@ -57,9 +60,11 @@ export function Header() {
               aria-label="Cart"
             >
               <ShoppingBag size={18} />
-              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-white">
-                0
-              </span>
+              {hasHydrated && totalItems > 0 && (
+                <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-white">
+                  {totalItems}
+                </span>
+              )}
             </Link>
 
             <Link

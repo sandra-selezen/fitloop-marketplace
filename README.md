@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FitLoop
+
+FitLoop is a modern activewear marketplace for discovering, buying, and selling sports clothing, sneakers, and accessories.
+
+Users can browse new and pre-owned products, filter listings by category, size, brand, condition, and price, save favorite items, create their own listings, manage products from a dashboard, and complete a checkout flow.
+
+## Tech Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Supabase
+- React Hook Form
+- Zod
+- Zustand
+- TanStack Query
+
+## Features
+
+- Authentication
+- Product creation and editing
+- Catalog filters
+- Search and sorting
+- Favorites
+- Cart
+- Checkout flow
+- User dashboard
+- Responsive design
+
+## Screenshots
 
 ## Getting Started
 
-First, run the development server:
+## Environment Variables
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Future Improvements
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What I focused on
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Scalable feature-based architecture
+- Type-safe forms and validation
+- URL-based filtering
+- Reusable UI components
+- Production-like loading and error states

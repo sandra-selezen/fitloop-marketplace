@@ -6,7 +6,6 @@ import {
   Heart,
   MapPin,
   ShieldCheck,
-  ShoppingBag,
   Star,
   Truck,
 } from "lucide-react";
@@ -14,6 +13,7 @@ import {
 import { mockProducts } from "@/constants/products";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Container } from "@/components/layout/Container";
+import { AddToCartButton } from "@/features/cart/components/AddToCartButton";
 
 interface ProductDetailsPageProps {
   params: Promise<{
@@ -27,8 +27,6 @@ export default async function ProductDetailsPage({
   const { id } = await params;
 
   const product = mockProducts.find((item) => item.id === id);
-
-  console.log("product", product);
 
   if (!product) {
     notFound();
@@ -160,13 +158,17 @@ export default async function ProductDetailsPage({
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]">
-                <button
-                  type="button"
-                  className="button-text inline-flex h-12 items-center justify-center gap-2 rounded-button bg-brand px-6 text-white transition hover:bg-brand-dark"
-                >
-                  <ShoppingBag size={18} />
-                  Add to cart
-                </button>
+                <AddToCartButton
+                  product={{
+                    id: product.id,
+                    title: product.title,
+                    brand: product.brand,
+                    price: product.price,
+                    image: product.image,
+                    size: product.size,
+                    condition: product.condition,
+                  }}
+                />
 
                 <button
                   type="button"
