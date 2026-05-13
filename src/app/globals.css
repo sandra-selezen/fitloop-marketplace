@@ -51,6 +51,10 @@ html {
   scroll-behavior: smooth;
 }
 
+button {
+  cursor: pointer;
+}
+
 @theme {
   --color-brand: #fa7275;
   --color-brand-dark: #ea6365;

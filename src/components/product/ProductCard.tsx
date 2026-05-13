@@ -20,7 +20,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <article className="group overflow-hidden rounded-card border border-border bg-card transition hover:-translate-y-1 hover:shadow-xl">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative aspect-[4/5] overflow-hidden bg-background-soft">
+        <div className="relative aspect-4/5 overflow-hidden bg-background-soft">
           <Image
             src={product.image}
             alt={product.title}
