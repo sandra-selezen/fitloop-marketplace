@@ -12,7 +12,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <QueryProvider>
       {children}
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position="top-center" />
     </QueryProvider>
   );
 }

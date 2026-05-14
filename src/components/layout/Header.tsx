@@ -1,21 +1,78 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Menu, ShoppingBag, User, X } from "lucide-react";
-import { useState } from "react";
+import {
+  Heart,
+  LogOut,
+  Menu,
+  ShoppingBag,
+  User as UserIcon,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { mainNavLinks } from "@/constants/navigation";
-import { cn } from "@/lib/utils/cn";
 import { useCartStore } from "@/features/cart/cart-store";
 import { Container } from "./Container";
 
 export function Header() {
+  const router = useRouter();
+  const supabase = createClient();
+
   const totalItems = useCartStore((state) => state.getTotalItems());
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setUser(session?.user ?? null);
+      setIsAuthLoading(false);
+    };
+
+    getSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setIsAuthLoading(false);
+      router.refresh();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router, supabase]);
 
   const handleCloseMenu = () => {
     setIsMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setUser(null);
+    setIsMenuOpen(false);
+
+    toast.success("Logged out successfully");
+    router.push("/");
+    router.refresh();
   };
 
   return (
@@ -43,6 +100,15 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+
+            {user && (
+              <Link
+                href="/dashboard"
+                className="body-2 text-text-primary transition hover:text-brand"
+              >
+                Dashboard
+              </Link>
+            )}
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
@@ -67,13 +133,25 @@ export function Header() {
               )}
             </Link>
 
-            <Link
-              href="/auth/login"
-              className="flex size-10 items-center justify-center rounded-full bg-text-strong text-white transition hover:bg-brand"
-              aria-label="Account"
-            >
-              <User size={18} />
-            </Link>
+            {!isAuthLoading &&
+              (user ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex size-10 items-center justify-center rounded-full bg-text-strong text-white transition hover:bg-brand"
+                  aria-label="Log out"
+                >
+                  <LogOut size={18} />
+                </button>
+              ) : (
+                <Link
+                  href="/auth/login"
+                  className="flex size-10 items-center justify-center rounded-full bg-text-strong text-white transition hover:bg-brand"
+                  aria-label="Account"
+                >
+                  <UserIcon size={18} />
+                </Link>
+              ))}
           </div>
 
           <button
@@ -111,6 +189,17 @@ export function Header() {
                   </Link>
                 ))}
 
+                {user && (
+                  <Link
+                    href="/dashboard"
+                    onClick={handleCloseMenu}
+                    className="body-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-text-primary transition hover:bg-background-soft hover:text-brand"
+                  >
+                    <UserIcon size={18} />
+                    Dashboard
+                  </Link>
+                )}
+
                 <Link
                   href="/favorites"
                   onClick={handleCloseMenu}
@@ -129,14 +218,25 @@ export function Header() {
                   Cart
                 </Link>
 
-                <Link
-                  href="/auth/login"
-                  onClick={handleCloseMenu}
-                  className="body-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-text-primary transition hover:bg-background-soft hover:text-brand"
-                >
-                  <User size={18} />
-                  Account
-                </Link>
+                {user ? (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="body-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-text-primary transition hover:bg-background-soft hover:text-brand"
+                  >
+                    <LogOut size={18} />
+                    Log out
+                  </button>
+                ) : (
+                  <Link
+                    href="/auth/login"
+                    onClick={handleCloseMenu}
+                    className="body-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-text-primary transition hover:bg-background-soft hover:text-brand"
+                  >
+                    <UserIcon size={18} />
+                    Account
+                  </Link>
+                )}
               </nav>
 
               <Link
