@@ -119,6 +119,115 @@ export const categories = [
   "Cycling",
 ];
 
-export const productTypes = ["All", "New", "Pre-owned"];
+export const productCategories = [
+  {
+    value: "clothing",
+    label: "Clothing",
+  },
+  {
+    value: "shoes",
+    label: "Shoes",
+  },
+  {
+    value: "accessories",
+    label: "Accessories",
+  },
+  {
+    value: "running",
+    label: "Running",
+  },
+  {
+    value: "training",
+    label: "Training",
+  },
+  {
+    value: "yoga",
+    label: "Yoga",
+  },
+  {
+    value: "outdoor",
+    label: "Outdoor",
+  },
+  {
+    value: "cycling",
+    label: "Cycling",
+  },
+] as const;
 
-export const sizes = ["XS", "S", "M", "L", "XL", "38", "39", "40", "41"];
+export const productTypes = [
+  {
+    value: "new",
+    label: "New",
+  },
+  {
+    value: "pre_owned",
+    label: "Pre-owned",
+  },
+] as const;
+
+export type ProductType = "new" | "pre_owned";
+
+export const sizes = [
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "36",
+  "37",
+  "38",
+  "39",
+  "40",
+  "41",
+  "42",
+  "43",
+  "44",
+];
+
+export const productGenders = [
+  {
+    value: "women",
+    label: "Women",
+  },
+  {
+    value: "men",
+    label: "Men",
+  },
+  {
+    value: "unisex",
+    label: "Unisex",
+  },
+] as const;
+
+export const productConditions: {
+  value: "new_with_tags" | "new_without_tags" | "like_new" | "good" | "fair";
+  label: string;
+  productTypes: ProductType[];
+}[] = [
+  {
+    value: "new_with_tags",
+    label: "New with tags",
+    productTypes: ["new"],
+  },
+  {
+    value: "new_without_tags",
+    label: "New without tags",
+    productTypes: ["new"],
+  },
+  {
+    value: "like_new",
+    label: "Like new",
+    productTypes: ["pre_owned"],
+  },
+  {
+    value: "good",
+    label: "Good",
+    productTypes: ["pre_owned"],
+  },
+  {
+    value: "fair",
+    label: "Fair",
+    productTypes: ["pre_owned"],
+  },
+];

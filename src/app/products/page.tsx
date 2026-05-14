@@ -1,8 +1,10 @@
 import { Search, SlidersHorizontal } from "lucide-react";
 
-import { categories, mockProducts, productTypes, sizes } from "@/constants/products";
+import { categories, mockProducts, sizes } from "@/constants/products";
 import { Container } from "@/components/layout/Container";
 import { ProductCard } from "@/components/product/ProductCard";
+
+const productTypes = ["All", "New", "Pre-owned"];
 
 export default function ProductsPage() {
   return (
