@@ -1,12 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ImagePlus, X } from "lucide-react";
 import { useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils/cn";
 import {
   productCategories,
   productConditions,
@@ -14,15 +14,30 @@ import {
   productTypes,
   sizes,
 } from "@/constants/products";
-import { Container } from "@/components/layout/Container";
 import {
   createListingSchema,
   type CreateListingFormInput,
   type CreateListingFormValues,
 } from "../create-listing-schema";
 
+import { Container } from "@/components/layout/Container";
+import {
+  FormInput,
+  FormSection,
+  FormSelect,
+  FormTextarea,
+} from "@/components/form/FormField";
+
+interface ImagePreview {
+  id: string;
+  file: File;
+  url: string;
+}
+
 export function CreateListingView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
+  const [imageError, setImageError] = useState("");
 
   const form = useForm<
     CreateListingFormInput,
@@ -54,15 +69,70 @@ export function CreateListingView() {
     condition.productTypes.includes(selectedProductType),
   );
 
+  const handleImagesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const availableSlots = 5 - imagePreviews.length;
+
+    if (availableSlots <= 0) {
+      setImageError("You can upload up to 5 photos");
+      return;
+    }
+
+    const selectedFiles = files.slice(0, availableSlots);
+
+    const nextImages = selectedFiles.map((file) => ({
+      id: `${file.name}-${crypto.randomUUID()}`,
+      file,
+      url: URL.createObjectURL(file),
+    }));
+
+    setImagePreviews((prev) => [...prev, ...nextImages]);
+    setImageError("");
+
+    event.target.value = "";
+  };
+
+  const handleRemoveImage = (imageId: string) => {
+    setImagePreviews((prev) => {
+      const imageToRemove = prev.find((image) => image.id === imageId);
+
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.url);
+      }
+
+      return prev.filter((image) => image.id !== imageId);
+    });
+  };
+
   const onSubmit = async (values: CreateListingFormValues) => {
+    if (imagePreviews.length === 0) {
+      setImageError("Add at least one product photo");
+      return;
+    }
+
     setIsSubmitting(true);
 
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     console.log("Create listing values:", values);
+    console.log(
+      "Selected images:",
+      imagePreviews.map((image) => image.file),
+    );
 
     toast.success("Listing created successfully");
 
+    imagePreviews.forEach((image) => {
+      URL.revokeObjectURL(image.url);
+    });
+
+    setImagePreviews([]);
+    setImageError("");
     setIsSubmitting(false);
     form.reset();
   };
@@ -107,17 +177,19 @@ export function CreateListingView() {
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FormSelect
-                    label="Category"
-                    error={form.formState.errors.category?.message}
-                    {...form.register("category")}
-                  >
-                    {productCategories.map((category) => (
-                      <option key={category.value} value={category.value}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </FormSelect>
+                  <Controller
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormSelect
+                        label="Category"
+                        value={field.value}
+                        options={productCategories}
+                        error={form.formState.errors.category?.message}
+                        onChange={field.onChange}
+                      />
+                    )}
+                  />
 
                   <FormInput
                     label="Brand"
@@ -134,52 +206,59 @@ export function CreateListingView() {
               description="Help buyers understand the type, condition, size, and color."
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormSelect
-                  label="Product type"
-                  error={form.formState.errors.productType?.message}
-                  {...form.register("productType", {
-                    onChange: (event) => {
-                      const nextType = event.target.value;
+                <Controller
+                  control={form.control}
+                  name="productType"
+                  render={({ field }) => (
+                    <FormSelect
+                      label="Product type"
+                      value={field.value}
+                      options={productTypes}
+                      error={form.formState.errors.productType?.message}
+                      onChange={(value) => {
+                        field.onChange(value);
 
-                      if (nextType === "new") {
-                        form.setValue("condition", "new_with_tags");
-                      } else {
-                        form.setValue("condition", "like_new");
-                      }
-                    },
-                  })}
-                >
-                  {productTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </FormSelect>
+                        if (value === "new") {
+                          form.setValue("condition", "new_with_tags");
+                        } else {
+                          form.setValue("condition", "like_new");
+                        }
+                      }}
+                    />
+                  )}
+                />
 
-                <FormSelect
-                  label="Condition"
-                  error={form.formState.errors.condition?.message}
-                  {...form.register("condition")}
-                >
-                  {availableConditions.map((condition) => (
-                    <option key={condition.value} value={condition.value}>
-                      {condition.label}
-                    </option>
-                  ))}
-                </FormSelect>
+                <Controller
+                  control={form.control}
+                  name="condition"
+                  render={({ field }) => (
+                    <FormSelect
+                      label="Condition"
+                      value={field.value}
+                      options={availableConditions}
+                      error={form.formState.errors.condition?.message}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
 
-                <FormSelect
-                  label="Size"
-                  error={form.formState.errors.size?.message}
-                  {...form.register("size")}
-                >
-                  <option value="">Select size</option>
-                  {sizes.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </FormSelect>
+                <Controller
+                  control={form.control}
+                  name="size"
+                  render={({ field }) => (
+                    <FormSelect
+                      label="Size"
+                      value={field.value}
+                      placeholder="Select size"
+                      options={sizes.map((size) => ({
+                        value: size,
+                        label: size,
+                      }))}
+                      error={form.formState.errors.size?.message}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
 
                 <FormInput
                   label="Color"
@@ -188,17 +267,86 @@ export function CreateListingView() {
                   {...form.register("color")}
                 />
 
-                <FormSelect
-                  label="Gender"
-                  error={form.formState.errors.gender?.message}
-                  {...form.register("gender")}
-                >
-                  {productGenders.map((gender) => (
-                    <option key={gender.value} value={gender.value}>
-                      {gender.label}
-                    </option>
-                  ))}
-                </FormSelect>
+                <Controller
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormSelect
+                      label="Gender"
+                      value={field.value}
+                      options={productGenders}
+                      error={form.formState.errors.gender?.message}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+            </FormSection>
+
+            <FormSection
+              title="Product photos"
+              description="Add clear photos of the item. The first photo will be used as the main listing image."
+            >
+              <div className="space-y-4">
+                <label className="flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-border bg-background-soft px-6 py-8 text-center transition hover:border-brand hover:bg-brand/5">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={handleImagesChange}
+                  />
+
+                  <div className="flex size-12 items-center justify-center rounded-full bg-white text-brand shadow-sm">
+                    <ImagePlus size={22} />
+                  </div>
+
+                  <p className="subtitle-2 mt-4 text-text-strong">
+                    Upload product photos
+                  </p>
+
+                  <p className="caption mt-2 max-w-sm text-text-muted">
+                    Choose up to 5 images. JPG, PNG, or WebP work best.
+                  </p>
+                </label>
+
+                {imageError && (
+                  <p className="caption text-error">{imageError}</p>
+                )}
+
+                {imagePreviews.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {imagePreviews.map((image, index) => (
+                      <div
+                        key={image.id}
+                        className="group relative aspect-square overflow-hidden rounded-[20px] border border-border bg-background-soft"
+                      >
+                        <Image
+                          src={image.url}
+                          alt={`Product photo ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 50vw, 180px"
+                        />
+
+                        {index === 0 && (
+                          <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-text-strong shadow-sm">
+                            Main photo
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(image.id)}
+                          className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-white/90 text-text-strong shadow-sm transition hover:bg-error hover:text-white"
+                          aria-label="Remove image"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </FormSection>
 
@@ -210,6 +358,7 @@ export function CreateListingView() {
                 <FormInput
                   label="Price"
                   type="number"
+                  inputMode="numeric"
                   min="1"
                   step="1"
                   placeholder="68"
@@ -234,7 +383,7 @@ export function CreateListingView() {
               <ChecklistItem label="Add clear product details" />
               <ChecklistItem label="Choose the correct condition" />
               <ChecklistItem label="Set a realistic price" />
-              <ChecklistItem label="Add product photos next" />
+              <ChecklistItem label="Add at least one product photo" />
             </div>
 
             <button
@@ -253,111 +402,6 @@ export function CreateListingView() {
         </form>
       </Container>
     </section>
-  );
-}
-
-interface FormSectionProps {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}
-
-function FormSection({ title, description, children }: FormSectionProps) {
-  return (
-    <section className="rounded-card border border-border bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-5">
-        <h2 className="heading-3 text-text-strong">{title}</h2>
-        <p className="body-2 mt-2 text-text-muted">{description}</p>
-      </div>
-
-      {children}
-    </section>
-  );
-}
-
-interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-  error?: string;
-}
-
-function FormInput({ label, error, className, ...props }: FormInputProps) {
-  return (
-    <label className="block">
-      <span className="subtitle-2 text-text-strong">{label}</span>
-
-      <input
-        className={cn(
-          "mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm text-text-strong outline-none transition placeholder:text-text-muted focus:border-brand focus:ring-2 focus:ring-brand/15",
-          error && "border-error focus:border-error focus:ring-error/10",
-          className,
-        )}
-        {...props}
-      />
-
-      {error && <span className="caption mt-1 block text-error">{error}</span>}
-    </label>
-  );
-}
-
-interface FormTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label: string;
-  error?: string;
-}
-
-function FormTextarea({
-  label,
-  error,
-  className,
-  ...props
-}: FormTextareaProps) {
-  return (
-    <label className="block">
-      <span className="subtitle-2 text-text-strong">{label}</span>
-
-      <textarea
-        rows={5}
-        className={cn(
-          "mt-2 w-full resize-none rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-strong outline-none transition placeholder:text-text-muted focus:border-brand focus:ring-2 focus:ring-brand/15",
-          error && "border-error focus:border-error focus:ring-error/10",
-          className,
-        )}
-        {...props}
-      />
-
-      {error && <span className="caption mt-1 block text-error">{error}</span>}
-    </label>
-  );
-}
-
-interface FormSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label: string;
-  error?: string;
-}
-
-function FormSelect({
-  label,
-  error,
-  className,
-  children,
-  ...props
-}: FormSelectProps) {
-  return (
-    <label className="block">
-      <span className="subtitle-2 text-text-strong">{label}</span>
-
-      <select
-        className={cn(
-          "mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm text-text-strong outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15",
-          error && "border-error focus:border-error focus:ring-error/10",
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-
-      {error && <span className="caption mt-1 block text-error">{error}</span>}
-    </label>
   );
 }
 
