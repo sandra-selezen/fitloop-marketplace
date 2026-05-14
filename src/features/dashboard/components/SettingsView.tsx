@@ -21,6 +21,7 @@ import {
 export function SettingsView() {
   const supabase = createClient();
 
+  const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,27 +37,100 @@ export function SettingsView() {
   });
 
   useEffect(() => {
-    const getUser = async () => {
+    const getProfile = async () => {
+      setIsLoadingUser(true);
+
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      setEmail(user?.email ?? "");
+      if (userError || !user) {
+        toast.error("Unable to load user");
+        setIsLoadingUser(false);
+        return;
+      }
+
+      setUserId(user.id);
+      setEmail(user.email ?? "");
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name, username, location, bio")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError && profileError.code !== "PGRST116") {
+        toast.error(profileError.message);
+        setIsLoadingUser(false);
+        return;
+      }
+
+      if (!profile) {
+        const fallbackUsername = user.email?.split("@")[0] ?? "";
+
+        await supabase.from("profiles").upsert({
+          id: user.id,
+          full_name: "",
+          username: fallbackUsername,
+          location: "",
+          bio: "",
+        });
+
+        form.reset({
+          fullName: "",
+          username: fallbackUsername,
+          location: "",
+          bio: "",
+        });
+
+        setIsLoadingUser(false);
+        return;
+      }
+
+      form.reset({
+        fullName: profile.full_name ?? "",
+        username: profile.username ?? "",
+        location: profile.location ?? "",
+        bio: profile.bio ?? "",
+      });
+
       setIsLoadingUser(false);
     };
 
-    getUser();
-  }, [supabase]);
+    getProfile();
+  }, [form, supabase]);
 
   const onSubmit = async (values: ProfileSettingsFormValues) => {
+    if (!userId) {
+      toast.error("User not found");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 700));
-
-    console.log("Profile settings values:", values);
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      full_name: values.fullName,
+      username: values.username,
+      location: values.location,
+      bio: values.bio,
+    });
 
     setIsSubmitting(false);
+
+    if (error) {
+      if (error.code === "23505") {
+        toast.error("This username is already taken");
+        return;
+      }
+
+      toast.error(error.message);
+      return;
+    }
+
     toast.success("Profile settings saved");
+    form.reset(values);
   };
 
   return (
@@ -69,8 +143,8 @@ export function SettingsView() {
             <h1 className="heading-1 text-text-strong">Profile settings</h1>
 
             <p className="body-2 mt-3 max-w-2xl text-text-muted">
-              Manage your public seller profile and account information. Later,
-              these settings will be saved to your Supabase profile.
+              Manage your public seller profile and account information. These
+              settings are saved to your Supabase profile.
             </p>
           </div>
 
@@ -86,37 +160,41 @@ export function SettingsView() {
             title="Public profile"
             description="This information can appear on your seller profile and listings."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormInput
-                label="Full name"
-                placeholder="e.g. John Doe"
-                error={form.formState.errors.fullName?.message}
-                {...form.register("fullName")}
-              />
-
-              <FormInput
-                label="Username"
-                placeholder="e.g. john"
-                error={form.formState.errors.username?.message}
-                {...form.register("username")}
-              />
-
-              <FormInput
-                label="Location"
-                placeholder="Tallinn, Estonia"
-                error={form.formState.errors.location?.message}
-                {...form.register("location")}
-              />
-
-              <div className="sm:col-span-2">
-                <FormTextarea
-                  label="Bio"
-                  placeholder="Tell buyers a little about your activewear style, favorite sports, or selling approach."
-                  error={form.formState.errors.bio?.message}
-                  {...form.register("bio")}
+            {isLoadingUser ? (
+              <ProfileFormSkeleton />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormInput
+                  label="Full name"
+                  placeholder="e.g. Oleksandra Selezen"
+                  error={form.formState.errors.fullName?.message}
+                  {...form.register("fullName")}
                 />
+
+                <FormInput
+                  label="Username"
+                  placeholder="e.g. oleksandra"
+                  error={form.formState.errors.username?.message}
+                  {...form.register("username")}
+                />
+
+                <FormInput
+                  label="Location"
+                  placeholder="Tallinn, Estonia"
+                  error={form.formState.errors.location?.message}
+                  {...form.register("location")}
+                />
+
+                <div className="sm:col-span-2">
+                  <FormTextarea
+                    label="Bio"
+                    placeholder="Tell buyers a little about your activewear style, favorite sports, or selling approach."
+                    error={form.formState.errors.bio?.message}
+                    {...form.register("bio")}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </FormSection>
 
           <FormSection
@@ -141,7 +219,7 @@ export function SettingsView() {
                   )}
 
                   <p className="caption mt-2 text-text-muted">
-                    Email editing will be added later through Supabase Auth
+                    Email editing can be added later through Supabase Auth
                     account management.
                   </p>
                 </div>
@@ -155,13 +233,14 @@ export function SettingsView() {
               variant="outline"
               className="button-text h-12 rounded-button border-border bg-white px-6 text-text-strong hover:border-brand hover:text-brand"
               onClick={() => form.reset()}
+              disabled={isLoadingUser || isSubmitting}
             >
               Reset
             </Button>
 
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isLoadingUser || isSubmitting}
               className="button-text h-12 rounded-button bg-brand px-6 text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Saving..." : "Save changes"}
@@ -178,7 +257,7 @@ export function SettingsView() {
             <ReadinessItem label="Email connected" completed={Boolean(email)} />
             <ReadinessItem
               label="Profile details added"
-              completed={form.formState.isDirty}
+              completed={form.formState.isDirty || Boolean(userId)}
             />
             <ReadinessItem label="First listing published" completed={false} />
           </div>
@@ -190,16 +269,29 @@ export function SettingsView() {
               </div>
 
               <div>
-                <h3 className="subtitle-2 text-text-strong">Production note</h3>
+                <h3 className="subtitle-2 text-text-strong">
+                  Supabase connected
+                </h3>
                 <p className="caption mt-1 text-text-muted">
-                  Later this page will read and update data from a Supabase
-                  profiles table linked to the authenticated user.
+                  This page now reads and updates data from your Supabase
+                  profiles table.
                 </p>
               </div>
             </div>
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function ProfileFormSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="h-12 animate-pulse rounded-2xl bg-background-soft" />
+      <div className="h-12 animate-pulse rounded-2xl bg-background-soft" />
+      <div className="h-12 animate-pulse rounded-2xl bg-background-soft" />
+      <div className="h-32 animate-pulse rounded-2xl bg-background-soft sm:col-span-2" />
     </div>
   );
 }

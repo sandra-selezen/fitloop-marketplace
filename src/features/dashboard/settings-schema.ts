@@ -25,8 +25,7 @@ export const profileSettingsSchema = z.object({
   bio: z
     .string()
     .trim()
-    .max(240, { error: "Bio should be less than 240 characters" })
-    .optional(),
+    .max(240, { error: "Bio should be less than 240 characters" }),
 });
 
 export type ProfileSettingsFormValues = z.infer<typeof profileSettingsSchema>;

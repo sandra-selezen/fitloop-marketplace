@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, ImagePlus, X } from "lucide-react";
@@ -7,6 +8,7 @@ import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { createClient } from "@/lib/supabase/client";
 import {
   productCategories,
   productConditions,
@@ -19,6 +21,7 @@ import {
   type CreateListingFormInput,
   type CreateListingFormValues,
 } from "../create-listing-schema";
+import { createProductSlug } from "../product-utils";
 
 import { Container } from "@/components/layout/Container";
 import {
@@ -35,6 +38,9 @@ interface ImagePreview {
 }
 
 export function CreateListingView() {
+  const router = useRouter();
+  const supabase = createClient();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
   const [imageError, setImageError] = useState("");
@@ -152,15 +158,87 @@ export function CreateListingView() {
 
     setIsSubmitting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    console.log("Create listing values:", values);
-    console.log(
-      "Selected images:",
-      imagePreviews.map((image) => image.file),
-    );
+    if (userError || !user) {
+      setIsSubmitting(false);
+      toast.error("You need to be logged in to create a listing");
+      router.push("/auth/login?next=/sell");
+      return;
+    }
 
-    toast.success("Listing created successfully");
+    const slug = createProductSlug(values.title);
+
+    const { data: product, error: productError } = await supabase
+      .from("products")
+      .insert({
+        seller_id: user.id,
+        title: values.title,
+        slug,
+        description: values.description,
+        category: values.category,
+        brand: values.brand,
+        product_type: values.productType,
+        condition: values.condition,
+        size: values.size,
+        color: values.color,
+        gender: values.gender,
+        price: values.price,
+        location: values.location,
+        status: "active",
+      })
+      .select("id")
+      .single();
+
+    if (productError || !product) {
+      setIsSubmitting(false);
+      toast.error(productError?.message || "Failed to create listing");
+      return;
+    }
+
+    const uploadedImages = [];
+
+    for (const [index, image] of imagePreviews.entries()) {
+      const fileExtension = image.file.name.split(".").pop();
+      const filePath = `${user.id}/${product.id}/${crypto.randomUUID()}.${fileExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, image.file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        setIsSubmitting(false);
+        toast.error(uploadError.message);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("product-images").getPublicUrl(filePath);
+
+      uploadedImages.push({
+        product_id: product.id,
+        url: publicUrl,
+        path: filePath,
+        position: index,
+      });
+    }
+
+    const { error: imagesError } = await supabase
+      .from("product_images")
+      .insert(uploadedImages);
+
+    if (imagesError) {
+      setIsSubmitting(false);
+      toast.error(imagesError.message);
+      return;
+    }
 
     imagePreviews.forEach((image) => {
       URL.revokeObjectURL(image.url);
@@ -168,8 +246,13 @@ export function CreateListingView() {
 
     setImagePreviews([]);
     setImageError("");
-    setIsSubmitting(false);
     form.reset();
+
+    toast.success("Listing published successfully");
+    router.push("/dashboard/listings");
+    router.refresh();
+
+    setIsSubmitting(false);
   };
 
   return (

@@ -4,7 +4,7 @@ export const createListingSchema = z.object({
   title: z
     .string()
     .trim()
-    .min(5, { error: "Title should be at least 5 characters" })
+    .min(3, { error: "Title should be at least 5 characters" })
     .max(80, { error: "Title should be less than 80 characters" }),
 
   description: z
