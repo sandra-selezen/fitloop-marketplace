@@ -8,15 +8,17 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
 import { useCartStore } from "@/features/cart/cart-store";
 import {
   checkoutSchema,
   type CheckoutFormValues,
 } from "@/features/checkout/checkout-schema";
-import { cn } from "@/lib/utils/cn";
+
 import { DEFAULT_DELIVERY_METHOD, deliveryMethods } from "@/constants/checkout";
 
 import { Container } from "@/components/layout/Container";
+import { FormInput, FormSection } from "@/components/form/FormField";
 
 export function CheckoutView() {
   const router = useRouter();
@@ -122,72 +124,72 @@ export function CheckoutView() {
           className="grid gap-8 lg:grid-cols-[1fr_380px]"
         >
           <div className="space-y-6">
-            <CheckoutSection
+            <FormSection
               title="Contact information"
-              description="We’ll use this information to send order updates."
+              description="We'll use this information to send order updates."
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <CheckoutInput
+                <FormInput
                   label="Email"
                   type="email"
                   error={form.formState.errors.email?.message}
                   {...form.register("email")}
                 />
 
-                <CheckoutInput
+                <FormInput
                   label="Phone number"
                   error={form.formState.errors.phone?.message}
                   {...form.register("phone")}
                 />
               </div>
-            </CheckoutSection>
+            </FormSection>
 
-            <CheckoutSection
+            <FormSection
               title="Shipping address"
               description="Tell us where the order should be delivered."
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <CheckoutInput
+                <FormInput
                   label="First name"
                   error={form.formState.errors.firstName?.message}
                   {...form.register("firstName")}
                 />
 
-                <CheckoutInput
+                <FormInput
                   label="Last name"
                   error={form.formState.errors.lastName?.message}
                   {...form.register("lastName")}
                 />
 
-                <CheckoutInput
+                <FormInput
                   label="Country"
                   error={form.formState.errors.country?.message}
                   {...form.register("country")}
                 />
 
-                <CheckoutInput
+                <FormInput
                   label="City"
                   error={form.formState.errors.city?.message}
                   {...form.register("city")}
                 />
 
                 <div className="sm:col-span-2">
-                  <CheckoutInput
+                  <FormInput
                     label="Address"
                     error={form.formState.errors.address?.message}
                     {...form.register("address")}
                   />
                 </div>
 
-                <CheckoutInput
+                <FormInput
                   label="Postal code"
                   error={form.formState.errors.postalCode?.message}
                   {...form.register("postalCode")}
                 />
               </div>
-            </CheckoutSection>
+            </FormSection>
 
-            <CheckoutSection
+            <FormSection
               title="Delivery method"
               description="Choose the delivery option that works best for you."
             >
@@ -230,9 +232,9 @@ export function CheckoutView() {
                   );
                 })}
               </div>
-            </CheckoutSection>
+            </FormSection>
 
-            <CheckoutSection
+            <FormSection
               title="Payment"
               description="Demo payment method for portfolio checkout flow."
             >
@@ -263,7 +265,7 @@ export function CheckoutView() {
                   This checkout is currently a front-end demo flow.
                 </p>
               </div>
-            </CheckoutSection>
+            </FormSection>
           </div>
 
           <aside className="h-fit rounded-card border border-border bg-white p-5 shadow-sm lg:sticky lg:top-28">
@@ -324,58 +326,6 @@ export function CheckoutView() {
         </form>
       </Container>
     </section>
-  );
-}
-
-interface CheckoutSectionProps {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}
-
-function CheckoutSection({
-  title,
-  description,
-  children,
-}: CheckoutSectionProps) {
-  return (
-    <section className="rounded-card border border-border bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-5">
-        <h2 className="heading-3 text-text-strong">{title}</h2>
-        <p className="body-2 mt-2 text-text-muted">{description}</p>
-      </div>
-
-      {children}
-    </section>
-  );
-}
-
-interface CheckoutInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-  error?: string;
-}
-
-function CheckoutInput({
-  label,
-  error,
-  className,
-  ...props
-}: CheckoutInputProps) {
-  return (
-    <label className="block">
-      <span className="subtitle-2 text-text-strong">{label}</span>
-
-      <input
-        className={cn(
-          "mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm text-text-strong outline-none transition placeholder:text-text-muted focus:border-brand focus:ring-2 focus:ring-brand/15",
-          error && "border-error focus:border-error focus:ring-error/10",
-          className,
-        )}
-        {...props}
-      />
-
-      {error && <span className="caption mt-1 block text-error">{error}</span>}
-    </label>
   );
 }
 

@@ -69,6 +69,41 @@ export function CreateListingView() {
     condition.productTypes.includes(selectedProductType),
   );
 
+  const watchedTitle = useWatch({
+    control: form.control,
+    name: "title",
+  });
+
+  const watchedBrand = useWatch({
+    control: form.control,
+    name: "brand",
+  });
+
+  const watchedPrice = useWatch({
+    control: form.control,
+    name: "price",
+  });
+
+  const previewPrice = Number(watchedPrice);
+
+  const formattedPreviewPrice = Number.isFinite(previewPrice)
+    ? previewPrice
+    : 0;
+
+  const watchedSize = useWatch({
+    control: form.control,
+    name: "size",
+  });
+
+  const watchedCondition = useWatch({
+    control: form.control,
+    name: "condition",
+  });
+
+  const conditionLabel =
+    productConditions.find((condition) => condition.value === watchedCondition)
+      ?.label || "Condition";
+
   const handleImagesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
 
@@ -377,13 +412,69 @@ export function CreateListingView() {
           </div>
 
           <aside className="h-fit rounded-card border border-border bg-white p-5 shadow-sm lg:sticky lg:top-28">
-            <h2 className="heading-3 text-text-strong">Listing checklist</h2>
+            <div>
+              <p className="overline mb-2 text-brand">Live preview</p>
+              <h2 className="heading-3 text-text-strong">Listing preview</h2>
+              <p className="caption mt-2 text-text-muted">
+                This is how your product card may appear in the marketplace.
+              </p>
+            </div>
 
-            <div className="mt-5 space-y-4">
-              <ChecklistItem label="Add clear product details" />
-              <ChecklistItem label="Choose the correct condition" />
-              <ChecklistItem label="Set a realistic price" />
-              <ChecklistItem label="Add at least one product photo" />
+            <div className="mt-5 overflow-hidden rounded-[24px] border border-border bg-white shadow-sm">
+              <div className="relative aspect-[4/5] bg-background-soft">
+                {imagePreviews[0] ? (
+                  <Image
+                    src={imagePreviews[0].url}
+                    alt="Listing preview"
+                    fill
+                    className="object-cover"
+                    sizes="340px"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-6 text-center">
+                    <p className="caption text-text-muted">
+                      Your main product photo will appear here
+                    </p>
+                  </div>
+                )}
+
+                <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-text-strong shadow-sm">
+                  Preview
+                </span>
+              </div>
+
+              <div className="space-y-3 p-4">
+                <div>
+                  <p className="caption text-text-muted">
+                    {watchedBrand || "Brand"}
+                  </p>
+
+                  <h3 className="subtitle-2 mt-1 line-clamp-2 text-text-strong">
+                    {watchedTitle || "Product title will appear here"}
+                  </h3>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <p className="caption text-text-muted">
+                    {conditionLabel} · Size {watchedSize || "—"}
+                  </p>
+
+                  <p className="subtitle-2 shrink-0 text-text-strong">
+                    €{formattedPreviewPrice}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-border pt-6">
+              <h2 className="heading-3 text-text-strong">Listing checklist</h2>
+
+              <div className="mt-5 space-y-4">
+                <ChecklistItem label="Add clear product details" />
+                <ChecklistItem label="Choose the correct condition" />
+                <ChecklistItem label="Set a realistic price" />
+                <ChecklistItem label="Add at least one product photo" />
+              </div>
             </div>
 
             <button
