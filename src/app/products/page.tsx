@@ -1,12 +1,111 @@
-import { Search, SlidersHorizontal } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import type { Metadata } from "next";
 
-import { categories, mockProducts, sizes } from "@/constants/products";
+import { createClient } from "@/lib/supabase/server";
 import { Container } from "@/components/layout/Container";
-import { ProductCard } from "@/components/product/ProductCard";
+import { ProductsFilters } from "@/features/products/components/ProductsFilters";
+import { ProductsToolbar } from "@/features/products/components/ProductsToolbar";
 
-const productTypes = ["All", "New", "Pre-owned"];
+export const metadata: Metadata = {
+  title: "Products | FitLoop",
+  description:
+    "Browse activewear, sneakers, and sports accessories on FitLoop.",
+};
 
-export default function ProductsPage() {
+interface ProductsPageProps {
+  searchParams: Promise<{
+    search?: string;
+    category?: string;
+    type?: string;
+    size?: string;
+    sort?: string;
+  }>;
+}
+
+interface ProductImage {
+  url: string;
+  position: number;
+}
+
+interface Product {
+  id: string;
+  title: string;
+  slug: string;
+  brand: string;
+  price: number;
+  category: string;
+  product_type: string;
+  condition: string;
+  size: string;
+  product_images: ProductImage[];
+}
+
+export default async function ProductsPage({
+  searchParams,
+}: ProductsPageProps) {
+  const params = await searchParams;
+  const supabase = await createClient();
+
+  const search = params.search?.trim();
+  const category = params.category;
+  const productType = params.type;
+  const size = params.size;
+  const sort = params.sort ?? "newest";
+
+  let query = supabase
+    .from("products")
+    .select(
+      `
+        id,
+        title,
+        slug,
+        brand,
+        price,
+        category,
+        product_type,
+        condition,
+        size,
+        product_images (
+          url,
+          position
+        )
+      `,
+    )
+    .eq("status", "active");
+
+  if (search) {
+    query = query.or(`title.ilike.%${search}%,brand.ilike.%${search}%`);
+  }
+
+  if (category) {
+    query = query.eq("category", category);
+  }
+
+  if (productType) {
+    query = query.eq("product_type", productType);
+  }
+
+  if (size) {
+    query = query.eq("size", size);
+  }
+
+  if (sort === "price_asc") {
+    query = query.order("price", { ascending: true });
+  } else if (sort === "price_desc") {
+    query = query.order("price", { ascending: false });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data: products, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const typedProducts = (products ?? []) as Product[];
+
   return (
     <div className="bg-background-soft">
       <section className="border-b border-border bg-white py-10">
@@ -24,22 +123,6 @@ export default function ProductsPage() {
                 around the community.
               </p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="button-text inline-flex h-11 items-center justify-center gap-2 rounded-button border border-border bg-white px-5 text-text-strong transition hover:border-brand hover:text-brand lg:hidden"
-              >
-                <SlidersHorizontal size={17} />
-                Filters
-              </button>
-
-              <select className="h-11 rounded-button border border-border bg-white px-5 text-sm font-medium text-text-strong outline-none transition focus:border-brand">
-                <option>Newest</option>
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
-              </select>
-            </div>
           </div>
         </Container>
       </section>
@@ -47,73 +130,20 @@ export default function ProductsPage() {
       <section className="py-8 lg:py-10">
         <Container>
           <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-            <aside className="hidden h-fit rounded-card border border-border bg-white p-5 lg:block">
-              <div className="flex items-center justify-between border-b border-border pb-4">
-                <h2 className="subtitle-1 text-text-strong">Filters</h2>
-                <button
-                  type="button"
-                  className="caption text-text-muted transition hover:text-brand"
-                >
-                  Clear all
-                </button>
-              </div>
+            <ProductsFilters />
 
-              <div className="space-y-6 pt-5">
-                <FilterGroup title="Category" options={categories} />
-                <FilterGroup title="Product type" options={productTypes} />
-                <FilterGroup title="Size" options={sizes} />
+            <div className="min-w-0">
+              <ProductsToolbar productsCount={typedProducts.length} />
 
-                <div>
-                  <h3 className="subtitle-2 mb-3 text-text-strong">
-                    Price range
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      className="h-10 rounded-xl border border-border px-3 text-sm outline-none transition placeholder:text-text-muted focus:border-brand"
-                    />
-
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      className="h-10 rounded-xl border border-border px-3 text-sm outline-none transition placeholder:text-text-muted focus:border-brand"
-                    />
-                  </div>
+              {typedProducts.length > 0 ? (
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {typedProducts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
                 </div>
-              </div>
-            </aside>
-
-            <div>
-              <div className="mb-6 flex flex-col gap-4 rounded-card border border-border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:max-w-md">
-                  <Search
-                    size={18}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted"
-                  />
-
-                  <input
-                    type="search"
-                    placeholder="Search by product, brand, or category"
-                    className="h-12 w-full rounded-button border border-border bg-background-soft pl-11 pr-4 text-sm outline-none transition placeholder:text-text-muted focus:border-brand focus:bg-white"
-                  />
-                </div>
-
-                <p className="body-2 shrink-0 text-text-muted">
-                  Showing{" "}
-                  <span className="font-semibold text-text-strong">
-                    {mockProducts.length}
-                  </span>{" "}
-                  products
-                </p>
-              </div>
-
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {mockProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+              ) : (
+                <EmptyProducts />
+              )}
             </div>
           </div>
         </Container>
@@ -122,30 +152,92 @@ export default function ProductsPage() {
   );
 }
 
-interface FilterGroupProps {
-  title: string;
-  options: string[];
+interface ProductCardProps {
+  product: Product;
 }
 
-function FilterGroup({ title, options }: FilterGroupProps) {
-  return (
-    <div>
-      <h3 className="subtitle-2 mb-3 text-text-strong">{title}</h3>
+function ProductCard({ product }: ProductCardProps) {
+  const sortedImages = [...(product.product_images ?? [])].sort(
+    (a, b) => a.position - b.position,
+  );
 
-      <div className="space-y-2">
-        {options.map((option) => (
-          <label
-            key={option}
-            className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-background-soft"
-          >
-            <input
-              type="checkbox"
-              className="size-4 rounded border-border accent-brand"
+  const mainImageUrl = sortedImages[0]?.url;
+
+  return (
+    <article className="group overflow-hidden rounded-card border border-border bg-card transition hover:-translate-y-1 hover:shadow-xl">
+      <Link href={`/products/${product.slug}`} className="block">
+        <div className="relative aspect-[4/5] overflow-hidden bg-background-soft">
+          {mainImageUrl ? (
+            <Image
+              src={mainImageUrl}
+              alt={product.title}
+              fill
+              className="object-cover transition duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, 33vw"
             />
-            <span className="body-2 text-text-primary">{option}</span>
-          </label>
-        ))}
+          ) : (
+            <div className="flex h-full items-center justify-center px-6 text-center">
+              <p className="caption text-text-muted">No image</p>
+            </div>
+          )}
+
+          <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-text-primary shadow-sm">
+            {formatProductType(product.product_type)}
+          </span>
+        </div>
+      </Link>
+
+      <div className="space-y-3 p-4">
+        <div>
+          <p className="caption text-text-muted">{product.brand}</p>
+
+          <Link href={`/products/${product.slug}`}>
+            <h3 className="subtitle-2 mt-1 line-clamp-2 text-text-strong transition hover:text-brand">
+              {product.title}
+            </h3>
+          </Link>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="caption text-text-muted">
+            {formatCondition(product.condition)} · Size {product.size}
+          </div>
+
+          <p className="subtitle-2 text-text-strong">
+            €{Number(product.price)}
+          </p>
+        </div>
       </div>
+    </article>
+  );
+}
+
+function EmptyProducts() {
+  return (
+    <div className="flex flex-col items-center rounded-[24px] border border-dashed border-border bg-white px-6 py-12 text-center">
+      <h3 className="heading-3 text-text-strong">No products found</h3>
+
+      <p className="body-2 mt-2 max-w-md text-text-muted">
+        Try changing your filters or search query.
+      </p>
+
+      <Link
+        href="/products"
+        className="button-text mt-6 inline-flex h-12 items-center justify-center rounded-button bg-brand px-6 text-white transition hover:bg-brand-dark"
+      >
+        Clear filters
+      </Link>
     </div>
   );
+}
+
+function formatCondition(condition: string) {
+  return condition
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatProductType(productType: string) {
+  return productType === "pre_owned" ? "Pre-owned" : "New";
 }

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import {
   Archive,
   Edit3,
@@ -10,16 +11,33 @@ import {
   PackagePlus,
 } from "lucide-react";
 
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-import {
-  dashboardListings,
-  type DashboardListingStatus,
-} from "@/features/dashboard/dashboard-listings";
 
 export const metadata: Metadata = {
   title: "My listings | FitLoop",
   description: "Manage your FitLoop product listings.",
 };
+
+type DashboardListingStatus = "active" | "draft" | "sold" | "archived";
+
+interface ProductImage {
+  url: string;
+  position: number;
+}
+
+interface DashboardListing {
+  id: string;
+  title: string;
+  slug: string;
+  brand: string;
+  price: number;
+  size: string;
+  condition: string;
+  status: DashboardListingStatus;
+  created_at: string;
+  product_images: ProductImage[];
+}
 
 const statusStyles: Record<DashboardListingStatus, string> = {
   active: "bg-accent-mint/15 text-[#16876f]",
@@ -35,8 +53,45 @@ const statusLabels: Record<DashboardListingStatus, string> = {
   archived: "Archived",
 };
 
-export default function DashboardListingsPage() {
-  const hasListings = dashboardListings.length > 0;
+export default async function DashboardListingsPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login?next=/dashboard/listings");
+  }
+
+  const { data: listings, error } = await supabase
+    .from("products")
+    .select(
+      `
+        id,
+        title,
+        slug,
+        brand,
+        price,
+        size,
+        condition,
+        status,
+        created_at,
+        product_images (
+          url,
+          position
+        )
+      `,
+    )
+    .eq("seller_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const typedListings = (listings ?? []) as DashboardListing[];
+  const hasListings = typedListings.length > 0;
 
   return (
     <div className="space-y-8">
@@ -68,8 +123,8 @@ export default function DashboardListingsPage() {
           <div>
             <h2 className="heading-3 text-text-strong">Listings overview</h2>
             <p className="body-2 mt-2 text-text-muted">
-              These are mock listings for now. Later, they’ll come from Supabase
-              products connected to the authenticated user.
+              These listings are loaded from Supabase and connected to your
+              authenticated user account.
             </p>
           </div>
 
@@ -83,7 +138,7 @@ export default function DashboardListingsPage() {
 
         {hasListings ? (
           <div className="space-y-4">
-            {dashboardListings.map((listing) => (
+            {typedListings.map((listing) => (
               <ListingRow key={listing.id} listing={listing} />
             ))}
           </div>
@@ -117,23 +172,35 @@ function StatusFilter({ label, active }: StatusFilterProps) {
 }
 
 interface ListingRowProps {
-  listing: (typeof dashboardListings)[number];
+  listing: DashboardListing;
 }
 
 function ListingRow({ listing }: ListingRowProps) {
+  const sortedImages = [...(listing.product_images ?? [])].sort(
+    (a, b) => a.position - b.position,
+  );
+
+  const mainImageUrl = sortedImages[0]?.url;
+
   return (
     <article className="grid gap-4 rounded-[24px] border border-border bg-white p-4 transition hover:shadow-md lg:grid-cols-[120px_1fr_auto] lg:items-center">
       <Link
-        href={`/products/${listing.id}`}
+        href={`/products/${listing.slug}`}
         className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-background-soft lg:aspect-square"
       >
-        <Image
-          src={listing.image}
-          alt={listing.title}
-          fill
-          className="object-cover transition duration-500 hover:scale-105"
-          sizes="(max-width: 1024px) 100vw, 120px"
-        />
+        {mainImageUrl ? (
+          <Image
+            src={mainImageUrl}
+            alt={listing.title}
+            fill
+            className="object-cover transition duration-500 hover:scale-105"
+            sizes="(max-width: 1024px) 100vw, 120px"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-4 text-center">
+            <p className="caption text-text-muted">No image</p>
+          </div>
+        )}
       </Link>
 
       <div className="min-w-0">
@@ -148,38 +215,36 @@ function ListingRow({ listing }: ListingRowProps) {
           </span>
 
           <span className="caption text-text-muted">
-            Created {formatDate(listing.createdAt)}
+            Created {formatDate(listing.created_at)}
           </span>
         </div>
 
         <p className="caption text-text-muted">{listing.brand}</p>
 
-        <Link href={`/products/${listing.id}`}>
+        <Link href={`/products/${listing.slug}`}>
           <h3 className="subtitle-1 mt-1 line-clamp-1 text-text-strong transition hover:text-brand">
             {listing.title}
           </h3>
         </Link>
 
         <p className="caption mt-2 text-text-muted">
-          {listing.condition} · Size {listing.size}
+          {formatCondition(listing.condition)} · Size {listing.size}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-4 text-text-muted">
           <span className="caption inline-flex items-center gap-1.5">
-            <Eye size={14} />
-            {listing.views} views
+            <Eye size={14} />0 views
           </span>
 
           <span className="caption inline-flex items-center gap-1.5">
-            <Heart size={14} />
-            {listing.saves} saves
+            <Heart size={14} />0 saves
           </span>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end">
         <p className="text-[24px] font-bold leading-8 text-text-strong">
-          €{listing.price}
+          €{Number(listing.price)}
         </p>
 
         <div className="flex items-center gap-2">
@@ -241,4 +306,11 @@ function formatDate(date: string) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(date));
+}
+
+function formatCondition(condition: string) {
+  return condition
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }

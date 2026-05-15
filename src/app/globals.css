@@ -236,6 +236,17 @@
     appearance: textfield;
     -moz-appearance: textfield;
   }
+
+  input[type="search"] {
+    appearance: textfield;
+    -webkit-appearance: textfield;
+  }
+
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration {
+    appearance: none;
+    -webkit-appearance: none;
+  }
 }
 
 @layer utilities {

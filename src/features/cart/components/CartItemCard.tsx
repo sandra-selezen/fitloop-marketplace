@@ -21,7 +21,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
   return (
     <article className="grid gap-4 rounded-card border border-border bg-white p-4 shadow-sm sm:grid-cols-[140px_1fr]">
       <Link
-        href={`/products/${product.id}`}
+        href={`/products/${product.slug}`}
         className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-background-soft sm:aspect-square"
       >
         <Image
@@ -38,7 +38,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
           <div>
             <p className="caption text-text-muted">{product.brand}</p>
 
-            <Link href={`/products/${product.id}`}>
+            <Link href={`/products/${product.slug}`}>
               <h2 className="subtitle-1 mt-1 text-text-strong transition hover:text-brand">
                 {product.title}
               </h2>
