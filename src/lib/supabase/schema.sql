@@ -302,3 +302,142 @@ on storage.objects
 for delete
 to authenticated
 using (bucket_id = 'product-images' and owner = auth.uid());
+
+-- =========================================================
+-- Orders
+-- =========================================================
+
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'order_status') then
+    create type public.order_status as enum (
+      'pending',
+      'paid',
+      'shipped',
+      'completed',
+      'cancelled'
+    );
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'payment_status') then
+    create type public.payment_status as enum (
+      'pending',
+      'demo_paid',
+      'paid',
+      'failed',
+      'refunded'
+    );
+  end if;
+end $$;
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+
+  buyer_id uuid not null references public.profiles(id) on delete cascade,
+
+  customer_email text not null,
+  customer_phone text not null,
+
+  first_name text not null,
+  last_name text not null,
+  country text not null,
+  city text not null,
+  address text not null,
+  postal_code text not null,
+
+  delivery_method text not null,
+  shipping_amount numeric(10, 2) not null default 0,
+  subtotal_amount numeric(10, 2) not null default 0,
+  total_amount numeric(10, 2) not null default 0,
+
+  status public.order_status not null default 'paid',
+  payment_status public.payment_status not null default 'demo_paid',
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.order_items (
+  id uuid primary key default gen_random_uuid(),
+
+  order_id uuid not null references public.orders(id) on delete cascade,
+  product_id uuid references public.products(id) on delete set null,
+  seller_id uuid references public.profiles(id) on delete set null,
+
+  product_title text not null,
+  product_brand text not null,
+  product_image text,
+  product_size text,
+  product_condition text,
+
+  unit_price numeric(10, 2) not null,
+  quantity integer not null default 1 check (quantity > 0),
+  total_price numeric(10, 2) not null,
+
+  created_at timestamptz not null default now()
+);
+
+create index if not exists orders_buyer_id_idx on public.orders(buyer_id);
+create index if not exists orders_created_at_idx on public.orders(created_at desc);
+create index if not exists order_items_order_id_idx on public.order_items(order_id);
+create index if not exists order_items_product_id_idx on public.order_items(product_id);
+create index if not exists order_items_seller_id_idx on public.order_items(seller_id);
+
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+
+-- Buyers can view their own orders
+create policy "Users can view their own orders"
+on public.orders
+for select
+to authenticated
+using (auth.uid() = buyer_id);
+
+-- Buyers can create their own orders
+create policy "Users can create their own orders"
+on public.orders
+for insert
+to authenticated
+with check (auth.uid() = buyer_id);
+
+-- Buyers can view items from their own orders
+create policy "Users can view their own order items"
+on public.order_items
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.orders
+    where orders.id = order_items.order_id
+    and orders.buyer_id = auth.uid()
+  )
+);
+
+-- Sellers can view order items for products they sold
+create policy "Sellers can view their sold order items"
+on public.order_items
+for select
+to authenticated
+using (seller_id = auth.uid());
+
+-- Buyers can create items for their own orders
+create policy "Users can create items for their own orders"
+on public.order_items
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.orders
+    where orders.id = order_items.order_id
+    and orders.buyer_id = auth.uid()
+  )
+);
+
+drop trigger if exists orders_updated_at on public.orders;
+
+create trigger orders_updated_at
+before update on public.orders
+for each row
+execute function public.handle_updated_at();

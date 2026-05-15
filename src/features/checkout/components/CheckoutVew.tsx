@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/features/cart/cart-store";
 import {
@@ -22,6 +23,7 @@ import { FormInput, FormSection } from "@/components/form/FormField";
 
 export function CheckoutView() {
   const router = useRouter();
+  const supabase = createClient();
 
   const items = useCartStore((state) => state.items);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
@@ -58,14 +60,84 @@ export function CheckoutView() {
 
   const total = subtotal + shipping;
 
-  const onSubmit = async () => {
+  const onSubmit = async (values: CheckoutFormValues) => {
     setIsSubmitting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 900));
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setIsSubmitting(false);
+      toast.error("You need to be logged in to place an order");
+      router.push("/auth/login?next=/checkout");
+      return;
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        buyer_id: user.id,
+
+        customer_email: values.email,
+        customer_phone: values.phone,
+
+        first_name: values.firstName,
+        last_name: values.lastName,
+        country: values.country,
+        city: values.city,
+        address: values.address,
+        postal_code: values.postalCode,
+
+        delivery_method: values.deliveryMethod,
+        shipping_amount: shipping,
+        subtotal_amount: subtotal,
+        total_amount: total,
+
+        status: "paid",
+        payment_status: "demo_paid",
+      })
+      .select("id")
+      .single();
+
+    if (orderError || !order) {
+      setIsSubmitting(false);
+      toast.error(orderError?.message || "Failed to create order");
+      return;
+    }
+
+    const orderItems = items.map((item) => ({
+      order_id: order.id,
+      product_id: item.product.id,
+      seller_id: item.product.sellerId,
+
+      product_title: item.product.title,
+      product_brand: item.product.brand,
+      product_image: item.product.image,
+      product_size: item.product.size,
+      product_condition: item.product.condition,
+
+      unit_price: item.product.price,
+      quantity: item.quantity,
+      total_price: item.product.price * item.quantity,
+    }));
+
+    const { error: orderItemsError } = await supabase
+      .from("order_items")
+      .insert(orderItems);
+
+    setIsSubmitting(false);
+
+    if (orderItemsError) {
+      toast.error(orderItemsError.message);
+      return;
+    }
 
     clearCart();
     toast.success("Order placed successfully");
-    router.push("/checkout/success");
+    router.push(`/checkout/success?order=${order.id}`);
+    router.refresh();
   };
 
   if (!hasHydrated) {

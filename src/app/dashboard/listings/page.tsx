@@ -2,17 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import {
-  Archive,
-  Edit3,
-  Eye,
-  Heart,
-  MoreHorizontal,
-  PackagePlus,
-} from "lucide-react";
+import { Edit3, Eye, Heart, PackagePlus } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { ListingActions } from "@/features/dashboard/components/ListingActions";
+import { DeleteListingDialog } from "@/features/dashboard/components/DeleteListingDialog";
 
 export const metadata: Metadata = {
   title: "My listings | FitLoop",
@@ -256,21 +251,12 @@ function ListingRow({ listing }: ListingRowProps) {
             Edit
           </Link>
 
-          <button
-            type="button"
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-white text-text-muted transition hover:border-brand hover:text-brand"
-            aria-label="Archive listing"
-          >
-            <Archive size={16} />
-          </button>
+          <ListingActions listingId={listing.id} status={listing.status} />
 
-          <button
-            type="button"
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-white text-text-muted transition hover:border-brand hover:text-brand"
-            aria-label="More actions"
-          >
-            <MoreHorizontal size={16} />
-          </button>
+          <DeleteListingDialog
+            listingId={listing.id}
+            listingTitle={listing.title}
+          />
         </div>
       </div>
     </article>

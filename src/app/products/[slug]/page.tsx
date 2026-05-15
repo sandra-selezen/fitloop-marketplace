@@ -278,6 +278,7 @@ export default async function ProductDetailsPage({
                   product={{
                     id: typedProduct.id,
                     slug: typedProduct.slug,
+                    sellerId: typedProduct.seller_id,
                     title: typedProduct.title,
                     brand: typedProduct.brand,
                     price: Number(typedProduct.price),

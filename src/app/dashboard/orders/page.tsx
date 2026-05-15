@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import {
   ArrowRight,
   CalendarDays,
@@ -9,16 +10,49 @@ import {
   Truck,
 } from "lucide-react";
 
-import {
-  dashboardOrders,
-  type DashboardOrderStatus,
-} from "@/features/dashboard/dashboard-orders";
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Orders | FitLoop",
   description: "Review your FitLoop marketplace orders.",
 };
+
+type DashboardOrderStatus =
+  | "pending"
+  | "paid"
+  | "shipped"
+  | "completed"
+  | "cancelled";
+
+interface DashboardOrderItem {
+  id: string;
+  product_title: string;
+  product_brand: string;
+  product_image: string | null;
+  product_size: string | null;
+  product_condition: string | null;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+}
+
+interface DashboardOrder {
+  id: string;
+  created_at: string;
+  status: DashboardOrderStatus;
+  payment_status: string;
+  delivery_method: string;
+  subtotal_amount: number;
+  shipping_amount: number;
+  total_amount: number;
+  first_name: string;
+  last_name: string;
+  customer_email: string;
+  city: string;
+  country: string;
+  order_items: DashboardOrderItem[];
+}
 
 const statusLabels: Record<DashboardOrderStatus, string> = {
   pending: "Pending",
@@ -36,33 +70,80 @@ const statusStyles: Record<DashboardOrderStatus, string> = {
   cancelled: "bg-background-soft text-text-muted",
 };
 
-export default function DashboardOrdersPage() {
-  const hasOrders = dashboardOrders.length > 0;
+export default async function DashboardOrdersPage() {
+  const supabase = await createClient();
 
-  const completedOrders = dashboardOrders.filter(
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login?next=/dashboard/orders");
+  }
+
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select(
+      `
+        id,
+        created_at,
+        status,
+        payment_status,
+        delivery_method,
+        subtotal_amount,
+        shipping_amount,
+        total_amount,
+        first_name,
+        last_name,
+        customer_email,
+        city,
+        country,
+        order_items (
+          id,
+          product_title,
+          product_brand,
+          product_image,
+          product_size,
+          product_condition,
+          unit_price,
+          quantity,
+          total_price
+        )
+      `,
+    )
+    .eq("buyer_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const typedOrders = (orders ?? []) as unknown as DashboardOrder[];
+  const hasOrders = typedOrders.length > 0;
+
+  const completedOrders = typedOrders.filter(
     (order) => order.status === "completed",
   ).length;
 
-  const activeOrders = dashboardOrders.filter((order) =>
+  const activeOrders = typedOrders.filter((order) =>
     ["pending", "paid", "shipped"].includes(order.status),
   ).length;
 
-  const totalRevenue = dashboardOrders
+  const totalOrderValue = typedOrders
     .filter((order) => order.status !== "cancelled")
-    .reduce((total, order) => total + order.total, 0);
+    .reduce((total, order) => total + Number(order.total_amount), 0);
 
   return (
     <div className="space-y-8">
       <section className="rounded-[32px] border border-border bg-white p-6 shadow-sm lg:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="overline mb-3 text-brand">Seller dashboard</p>
+            <p className="overline mb-3 text-brand">Buyer dashboard</p>
 
             <h1 className="heading-1 text-text-strong">Orders</h1>
 
             <p className="body-2 mt-3 max-w-2xl text-text-muted">
-              Track buyer orders, payment states, delivery methods, and recent
-              marketplace activity.
+              Track your checkout activity, delivery methods, and order history.
             </p>
           </div>
 
@@ -94,8 +175,8 @@ export default function DashboardOrdersPage() {
         <OrderStatCard
           icon={<ShoppingBag size={20} />}
           label="Order value"
-          value={`€${totalRevenue}`}
-          description="Mock revenue from non-cancelled orders"
+          value={`€${formatMoney(totalOrderValue)}`}
+          description="Total value of non-cancelled orders"
         />
       </section>
 
@@ -104,8 +185,8 @@ export default function DashboardOrdersPage() {
           <div>
             <h2 className="heading-3 text-text-strong">Recent orders</h2>
             <p className="body-2 mt-2 text-text-muted">
-              These are mock orders for now. Later, they’ll come from the
-              Supabase orders table and be connected to checkout.
+              These orders are loaded from Supabase and connected to your
+              authenticated user account.
             </p>
           </div>
 
@@ -119,7 +200,7 @@ export default function DashboardOrdersPage() {
 
         {hasOrders ? (
           <div className="space-y-4">
-            {dashboardOrders.map((order) => (
+            {typedOrders.map((order) => (
               <OrderCard key={order.id} order={order} />
             ))}
           </div>
@@ -183,14 +264,21 @@ function StatusFilter({ label, active }: StatusFilterProps) {
 }
 
 interface OrderCardProps {
-  order: (typeof dashboardOrders)[number];
+  order: DashboardOrder;
 }
 
 function OrderCard({ order }: OrderCardProps) {
+  const orderReference = order.id.slice(0, 8).toUpperCase();
+  const buyerName = `${order.first_name} ${order.last_name}`;
+  const itemsCount = order.order_items.reduce(
+    (total, item) => total + item.quantity,
+    0,
+  );
+
   return (
     <article className="rounded-[24px] border border-border bg-white p-4 transition hover:shadow-md sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
@@ -203,26 +291,29 @@ function OrderCard({ order }: OrderCardProps) {
 
             <span className="caption inline-flex items-center gap-1.5 text-text-muted">
               <CalendarDays size={14} />
-              {formatDate(order.date)}
+              {formatDate(order.created_at)}
             </span>
           </div>
 
           <h3 className="subtitle-1 mt-3 text-text-strong">
-            Order #{order.id}
+            Order #{orderReference}
           </h3>
 
           <p className="body-2 mt-1 text-text-muted">
             Buyer:{" "}
-            <span className="font-medium text-text-primary">
-              {order.customerName}
-            </span>
+            <span className="font-medium text-text-primary">{buyerName}</span>
+          </p>
+
+          <p className="caption mt-1 text-text-muted">
+            {order.city}, {order.country} · {order.customer_email}
           </p>
 
           <div className="mt-4 space-y-2">
-            {order.items.map((item) => (
-              <p key={item} className="caption text-text-muted">
-                · {item}
-              </p>
+            {order.order_items.map((item) => (
+              <div key={item.id} className="caption text-text-muted">
+                · {item.product_title}{" "}
+                <span className="text-text-primary">× {item.quantity}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -231,19 +322,23 @@ function OrderCard({ order }: OrderCardProps) {
           <div className="text-left lg:text-right">
             <p className="caption text-text-muted">Total</p>
             <p className="text-[24px] font-bold leading-8 text-text-strong">
-              €{order.total}
+              €{formatMoney(Number(order.total_amount))}
+            </p>
+
+            <p className="caption mt-1 text-text-muted">
+              Shipping €{formatMoney(Number(order.shipping_amount))}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-text-muted">
+          <div className="flex flex-wrap items-center gap-3 text-text-muted lg:justify-end">
             <span className="caption inline-flex items-center gap-1.5">
               <PackageCheck size={14} />
-              {order.itemsCount} {order.itemsCount === 1 ? "item" : "items"}
+              {itemsCount} {itemsCount === 1 ? "item" : "items"}
             </span>
 
             <span className="caption inline-flex items-center gap-1.5">
               <Truck size={14} />
-              {order.deliveryMethod}
+              {formatDeliveryMethod(order.delivery_method)}
             </span>
           </div>
 
@@ -270,7 +365,7 @@ function EmptyOrders() {
       <h3 className="heading-3 mt-5 text-text-strong">No orders yet</h3>
 
       <p className="body-2 mt-2 max-w-md text-text-muted">
-        Orders will appear here after buyers complete checkout.
+        Orders will appear here after you complete checkout.
       </p>
 
       <Link
@@ -289,4 +384,18 @@ function formatDate(date: string) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(date));
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatDeliveryMethod(method: string) {
+  return method
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
