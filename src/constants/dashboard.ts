@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Package,
   Settings,
+  TrendingUp,
 } from "lucide-react";
 
 export const dashboardNavLinks = [
@@ -15,6 +16,11 @@ export const dashboardNavLinks = [
     label: "My listings",
     href: "/dashboard/listings",
     icon: Package,
+  },
+  {
+    label: "Sales",
+    href: "/dashboard/sales",
+    icon: TrendingUp,
   },
   {
     label: "Orders",
